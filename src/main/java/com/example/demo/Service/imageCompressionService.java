@@ -20,6 +20,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import java.awt.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.util.Iterator;
+
 @Service
 public class imageCompressionService {
 
@@ -41,7 +47,7 @@ public class imageCompressionService {
             if (downloadImage(imageUrl, tmpFile.toFile())) {
                 // Compress the image if download is successful
                 System.out.println("Compressing "+fileName);
-                compressImage(tmpFile.toFile(), outputPath.toFile(), 0.5f); // 50% quality
+                compressImage(tmpFile.toFile(), outputPath.toFile(), 0.5f, 0.05f); // 50% quality
             }
 
         }catch(Exception ex){
@@ -81,19 +87,33 @@ public class imageCompressionService {
         return false;
     }
 
-    public static void compressImage(File inputFile, File outputFile, float quality) {
+    public void compressImage(File inputFile, File outputFile, float quality, float ratio) {
         try {
             // Read the image
-            BufferedImage image = ImageIO.read(inputFile);
-            if (image == null) {
+            BufferedImage originalImage = ImageIO.read(inputFile);
+            if (originalImage == null) {
                 System.out.println("Invalid image file: " + inputFile.getAbsolutePath());
                 return;
             }
 
             System.out.println("Compressing image: " + inputFile.getAbsolutePath());
 
+            // Resize the image based on the ratio
+            int newWidth = (int) (originalImage.getWidth() * ratio);
+            int newHeight = (int) (originalImage.getHeight() * ratio);
+            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = resizedImage.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
+            g.dispose();
+
             // Get a JPEG ImageWriter
-            ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+            if (!writers.hasNext()) {
+                System.out.println("No JPEG writer available");
+                return;
+            }
+            ImageWriter writer = writers.next();
             ImageWriteParam param = writer.getDefaultWriteParam();
             param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
             param.setCompressionQuality(quality); // Compression level (0.0 = max compression, 1.0 = max quality)
@@ -102,7 +122,7 @@ public class imageCompressionService {
             try (OutputStream os = new FileOutputStream(outputFile);
                  ImageOutputStream ios = ImageIO.createImageOutputStream(os)) {
                 writer.setOutput(ios);
-                writer.write(null, new IIOImage(image, null, null), param);
+                writer.write(null, new IIOImage(resizedImage, null, null), param);
                 writer.dispose();
                 System.out.println("Compressed image saved: " + outputFile.getAbsolutePath());
             }
