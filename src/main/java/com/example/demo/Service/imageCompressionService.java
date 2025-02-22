@@ -25,17 +25,23 @@ public class imageCompressionService {
 
     public String image(String imageUrl,String Sucode){
         try {
-            System.out.println("Inider");
             // Create folder structure: baseOutput/code/downloaded-image
             Path codeFolder = Paths.get("test", Sucode);
+            Path tmpFolder = Paths.get("tmp");
+
+            Files.createDirectories(codeFolder);
+            Files.createDirectories(tmpFolder);
 
             // Get file name from URL
             String fileName = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+            Path tmpFile = tmpFolder.resolve(fileName);
             Path outputPath = codeFolder.resolve(fileName);
 
-            if (downloadImage(imageUrl, outputPath.toFile())) {
+            System.out.println("Downloading "+fileName+" "+Sucode);
+            if (downloadImage(imageUrl, tmpFile.toFile())) {
                 // Compress the image if download is successful
-                compressImage(outputPath.toFile(), outputPath.toFile(), 0.5f); // 50% quality
+                System.out.println("Compressing "+fileName);
+                compressImage(tmpFile.toFile(), outputPath.toFile(), 0.5f); // 50% quality
             }
 
         }catch(Exception ex){
@@ -107,13 +113,12 @@ public class imageCompressionService {
     }
 
 
-    public  void processExcel(String excelFilePath, String baseOutputPath) {
+    public  void processExcel(String excelFilePath) {
         try (FileInputStream fis = new FileInputStream(excelFilePath);
              Workbook workbook = new XSSFWorkbook(fis)) {
 
             Sheet sheet = workbook.getSheetAt(0);
             for (Row row : sheet) {
-                if (row.getRowNum() == 0) continue; // Skip header row
 
                 Cell codeCell = row.getCell(0);
                 Cell imagePathCell = row.getCell(1);
@@ -122,13 +127,6 @@ public class imageCompressionService {
                     String code = codeCell.getStringCellValue();
                     String imagePath = imagePathCell.getStringCellValue();
 
-                    File sourceImage = new File(imagePath);
-                    if (!sourceImage.exists()) {
-                        System.out.println("Image not found: " + imagePath);
-                        continue;
-                    }
-
-                    // Create folder structure
                     image(imagePath,code);
 
                 }
